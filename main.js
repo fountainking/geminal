@@ -1,10 +1,11 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage } = require('electron');
 const path = require('path');
 const pty = require('node-pty');
 const os = require('os');
 
 let mainWindow;
 let ptyProcess;
+let tray;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -80,7 +81,47 @@ ipcMain.on('terminal-resize', (event, { cols, rows }) => {
   }
 });
 
-app.whenReady().then(createWindow);
+function createTray() {
+  const iconPath = path.join(__dirname, 'tray-icon.png');
+  const icon = nativeImage.createFromPath(iconPath);
+  icon.setTemplateImage(true);
+
+  tray = new Tray(icon);
+  tray.setToolTip('Geminal');
+
+  const contextMenu = Menu.buildFromTemplate([
+    {
+      label: 'Show Window',
+      click: () => {
+        if (mainWindow) {
+          mainWindow.show();
+        }
+      }
+    },
+    {
+      label: 'Hide Window',
+      click: () => {
+        if (mainWindow) {
+          mainWindow.hide();
+        }
+      }
+    },
+    { type: 'separator' },
+    {
+      label: 'Quit',
+      click: () => {
+        app.quit();
+      }
+    }
+  ]);
+
+  tray.setContextMenu(contextMenu);
+}
+
+app.whenReady().then(() => {
+  createWindow();
+  createTray();
+});
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
