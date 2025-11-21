@@ -27,40 +27,44 @@ term.open(terminalContainer);
 fitAddon.fit();
 
 // Handle terminal input
+let inputTimeout = null;
 term.onData((data) => {
+  // Stop all cycling when user types - keep stars yellow and static
+  starTopLeft.classList.remove('active', 'color-shift');
+  starBottomRight.classList.remove('active', 'color-shift');
+
+  // Block output-triggered cycling briefly while user is typing
+  userInteracting = true;
+  clearTimeout(inputTimeout);
+  inputTimeout = setTimeout(() => {
+    userInteracting = false;
+  }, 500); // Allow output cycling 500ms after last keystroke
+
   ipcRenderer.send('terminal-input', data);
 });
 
 // Handle terminal output from main process
-let spinTimeout = null;
-let outputCount = 0;
-let outputWindow = null;
+let activityTimeout = null;
+let userInteracting = false; // Track if user is typing or dragging
 
 ipcRenderer.on('terminal-output', (event, data) => {
   term.write(data);
 
-  // Count outputs in a 100ms window
-  outputCount++;
+  // Don't cycle if user is actively interacting
+  if (userInteracting) return;
 
-  if (!outputWindow) {
-    outputWindow = setTimeout(() => {
-      // If we got 3+ outputs in 100ms, it's rapid output (command running)
-      if (outputCount >= 3) {
-        starTopLeft.classList.add('spinning');
-        starBottomRight.classList.add('spinning');
+  // Start cycling only on substantial output (avoid single char/line echoes)
+  // This catches command output like cmatrix but not typing echoes
+  if (data.length > 20) {
+    starTopLeft.classList.add('active');
+    starBottomRight.classList.add('active');
 
-        // Keep spinning and reset
-        clearTimeout(spinTimeout);
-        spinTimeout = setTimeout(() => {
-          starTopLeft.classList.remove('spinning');
-          starBottomRight.classList.remove('spinning');
-        }, 400);
-      }
-
-      // Reset counter
-      outputCount = 0;
-      outputWindow = null;
-    }, 100);
+    // Reset the inactivity timer - keep cycling until silence
+    clearTimeout(activityTimeout);
+    activityTimeout = setTimeout(() => {
+      starTopLeft.classList.remove('active');
+      starBottomRight.classList.remove('active');
+    }, 5000); // Stop after 5s of silence
   }
 });
 
@@ -100,9 +104,15 @@ function startDrag(e, star) {
   startX = e.screenX;
   startY = e.screenY;
 
-  // Stop color cycling on interaction
-  starTopLeft.classList.remove('color-shift');
-  starBottomRight.classList.remove('color-shift');
+  // Stop all color cycling on interaction
+  starTopLeft.classList.remove('color-shift', 'active');
+  starBottomRight.classList.remove('color-shift', 'active');
+
+  // Block output-triggered cycling while dragging
+  userInteracting = true;
+
+  // Clear any pending timeout
+  clearTimeout(activityTimeout);
 
   // Get current window bounds
   const bounds = window.electron?.screen?.getCursorScreenPoint() || { x: 0, y: 0 };
@@ -159,6 +169,12 @@ function drag(e) {
 function stopDrag() {
   isDragging = false;
   currentStar = null;
+
+  // Keep stars static for a moment after drag ends
+  userInteracting = true;
+  setTimeout(() => {
+    userInteracting = false;
+  }, 1000);
 }
 
 // Star drag event listeners
@@ -223,7 +239,7 @@ console.log('Press Cmd+Shift+L (or Ctrl+Shift+L) to toggle window level controls
 // ===============================================
 
 function launchStars() {
-  // Stagger the star launches
+  // Stagger the star launches - cycle until first interaction
   setTimeout(() => {
     starTopLeft.classList.add('launched', 'color-shift');
   }, 100);

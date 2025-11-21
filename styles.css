@@ -81,17 +81,32 @@ body {
   animation: colorCycle 2s linear 0.3s infinite;
 }
 
-/* Spinning animation for terminal output */
-.star.spinning svg {
-  animation: spin 0.3s linear infinite;
+/* Fast color cycling for terminal output */
+.star.active svg {
+  animation: fastColorCycle 0.8s linear infinite;
 }
 
-@keyframes spin {
-  from {
-    transform: rotate(0deg);
+@keyframes fastColorCycle {
+  0% {
+    filter: hue-rotate(0deg) drop-shadow(0 0 4px rgba(255, 255, 255, 0.9));
   }
-  to {
-    transform: rotate(360deg);
+  16.67% {
+    filter: hue-rotate(60deg) drop-shadow(0 0 4px rgba(255, 255, 255, 0.9));
+  }
+  33.33% {
+    filter: hue-rotate(120deg) drop-shadow(0 0 4px rgba(255, 255, 255, 0.9));
+  }
+  50% {
+    filter: hue-rotate(180deg) drop-shadow(0 0 4px rgba(255, 255, 255, 0.9));
+  }
+  66.67% {
+    filter: hue-rotate(240deg) drop-shadow(0 0 4px rgba(255, 255, 255, 0.9));
+  }
+  83.33% {
+    filter: hue-rotate(300deg) drop-shadow(0 0 4px rgba(255, 255, 255, 0.9));
+  }
+  100% {
+    filter: hue-rotate(360deg) drop-shadow(0 0 4px rgba(255, 255, 255, 0.9));
   }
 }
 
