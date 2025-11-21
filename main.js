@@ -72,20 +72,6 @@ ipcMain.on('resize-window', (event, { x, y, width, height }) => {
   }
 });
 
-// Handle window level changes
-ipcMain.on('set-window-level', (event, level) => {
-  if (mainWindow) {
-    if (level === 'desktop') {
-      mainWindow.setAlwaysOnTop(false);
-      mainWindow.setVisibleOnAllWorkspaces(true);
-    } else if (level === 'top') {
-      mainWindow.setAlwaysOnTop(true);
-    } else {
-      // Normal level
-      mainWindow.setAlwaysOnTop(false);
-    }
-  }
-});
 
 // Handle terminal resize (cols/rows)
 ipcMain.on('terminal-resize', (event, { cols, rows }) => {
