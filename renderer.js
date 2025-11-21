@@ -4,14 +4,14 @@ const { FitAddon } = require('xterm-addon-fit');
 
 // Initialize terminal
 const term = new Terminal({
-  cursorBlink: true,
+  cursorBlink: false,
   fontSize: 14,
   fontFamily: 'Menlo, Monaco, "Courier New", monospace',
   theme: {
     background: 'transparent',
     foreground: '#00ff00',
-    cursor: '#00ff00',
-    cursorAccent: '#000000',
+    cursor: 'transparent',
+    cursorAccent: 'transparent',
     selectionBackground: 'rgba(255, 255, 255, 0.3)',
   },
   allowTransparency: true,

@@ -8,8 +8,8 @@ let ptyProcess;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 800,
-    height: 600,
+    width: 80,
+    height: 64,
     frame: false,
     transparent: true,
     alwaysOnTop: false,
@@ -19,6 +19,8 @@ function createWindow() {
       contextIsolation: false,
     },
   });
+
+  mainWindow.setBackgroundColor('#00000000');
 
   mainWindow.loadFile('index.html');
 
@@ -75,16 +77,12 @@ ipcMain.on('set-window-level', (event, level) => {
   if (mainWindow) {
     if (level === 'desktop') {
       mainWindow.setAlwaysOnTop(false);
-      // Set to desktop level (behind all windows)
       mainWindow.setVisibleOnAllWorkspaces(true);
-      mainWindow.setLevel(0); // Desktop level
     } else if (level === 'top') {
       mainWindow.setAlwaysOnTop(true);
-      mainWindow.setLevel(3); // Floating level
     } else {
       // Normal level
       mainWindow.setAlwaysOnTop(false);
-      mainWindow.setLevel(0);
     }
   }
 });
