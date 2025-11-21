@@ -72,6 +72,10 @@ function startDrag(e, star) {
   startX = e.screenX;
   startY = e.screenY;
 
+  // Stop color cycling on interaction
+  starTopLeft.classList.remove('color-shift');
+  starBottomRight.classList.remove('color-shift');
+
   // Get current window bounds
   const bounds = window.electron?.screen?.getCursorScreenPoint() || { x: 0, y: 0 };
   initialWindowBounds = {
@@ -185,3 +189,23 @@ setTimeout(() => {
 
 console.log('geminal terminal ready');
 console.log('Press Cmd+Shift+L (or Ctrl+Shift+L) to toggle window level controls');
+
+// ===============================================
+// LAUNCH ANIMATIONS
+// ===============================================
+
+function launchStars() {
+  // Stagger the star launches
+  setTimeout(() => {
+    starTopLeft.classList.add('launched', 'color-shift');
+  }, 100);
+
+  setTimeout(() => {
+    starBottomRight.classList.add('launched', 'color-shift');
+  }, 250);
+}
+
+// Trigger launch animation on load
+window.addEventListener('DOMContentLoaded', () => {
+  launchStars();
+});

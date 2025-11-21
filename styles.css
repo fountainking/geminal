@@ -57,20 +57,61 @@ body {
   cursor: move;
   user-select: none;
   z-index: 9999;
-  filter: drop-shadow(0 0 3px rgba(255, 255, 255, 0.8));
   transition: transform 0.1s ease;
   -webkit-app-region: no-drag;
+  opacity: 0;
+}
+
+/* Launch animation */
+.star.launched {
+  animation: starLaunch 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes starLaunch {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+/* Color change animation */
+.star.color-shift svg {
+  animation: colorCycle 2s linear 0.3s infinite;
+}
+
+@keyframes colorCycle {
+  0% {
+    filter: hue-rotate(0deg) drop-shadow(0 0 3px rgba(255, 255, 255, 0.8));
+  }
+  25% {
+    filter: hue-rotate(90deg) drop-shadow(0 0 3px rgba(255, 255, 255, 0.8));
+  }
+  50% {
+    filter: hue-rotate(180deg) drop-shadow(0 0 3px rgba(255, 255, 255, 0.8));
+  }
+  75% {
+    filter: hue-rotate(270deg) drop-shadow(0 0 3px rgba(255, 255, 255, 0.8));
+  }
+  100% {
+    filter: hue-rotate(360deg) drop-shadow(0 0 3px rgba(255, 255, 255, 0.8));
+  }
 }
 
 .star svg {
   width: 100%;
   height: 100%;
   pointer-events: none;
+  filter: drop-shadow(0 0 3px rgba(255, 255, 255, 0.8));
+}
+
+.star:hover svg {
+  filter: drop-shadow(0 0 6px rgba(255, 255, 255, 1));
 }
 
 .star:hover {
   transform: scale(1.2);
-  filter: drop-shadow(0 0 6px rgba(255, 255, 255, 1));
 }
 
 .star:active {
@@ -134,3 +175,4 @@ body {
 #terminal-container {
   cursor: text;
 }
+
