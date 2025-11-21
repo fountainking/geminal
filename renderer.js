@@ -32,8 +32,36 @@ term.onData((data) => {
 });
 
 // Handle terminal output from main process
+let spinTimeout = null;
+let outputCount = 0;
+let outputWindow = null;
+
 ipcRenderer.on('terminal-output', (event, data) => {
   term.write(data);
+
+  // Count outputs in a 100ms window
+  outputCount++;
+
+  if (!outputWindow) {
+    outputWindow = setTimeout(() => {
+      // If we got 3+ outputs in 100ms, it's rapid output (command running)
+      if (outputCount >= 3) {
+        starTopLeft.classList.add('spinning');
+        starBottomRight.classList.add('spinning');
+
+        // Keep spinning and reset
+        clearTimeout(spinTimeout);
+        spinTimeout = setTimeout(() => {
+          starTopLeft.classList.remove('spinning');
+          starBottomRight.classList.remove('spinning');
+        }, 400);
+      }
+
+      // Reset counter
+      outputCount = 0;
+      outputWindow = null;
+    }, 100);
+  }
 });
 
 // Fit terminal on window resize
