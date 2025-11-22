@@ -38,7 +38,7 @@ term.onData((data) => {
   clearTimeout(inputTimeout);
   inputTimeout = setTimeout(() => {
     userInteracting = false;
-  }, 100); // Allow output cycling 100ms after last keystroke
+  }, 100); // CRITICAL: 100ms allows fast cycling start on cmatrix. DO NOT INCREASE.
 
   ipcRenderer.send('terminal-input', data);
 });
@@ -170,7 +170,7 @@ function stopDrag() {
   isDragging = false;
   currentStar = null;
 
-  // Brief cooldown after drag
+  // CRITICAL: 500ms cooldown blocks resize output cycling. DO NOT INCREASE or cmatrix breaks.
   userInteracting = true;
   setTimeout(() => {
     userInteracting = false;
