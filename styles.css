@@ -57,7 +57,7 @@ body {
   cursor: move;
   user-select: none;
   z-index: 9999;
-  transition: transform 0.1s ease;
+  transition: transform 0.3s ease;
   -webkit-app-region: no-drag;
   opacity: 0;
 }
@@ -132,15 +132,15 @@ body {
   width: 100%;
   height: 100%;
   pointer-events: none;
-  filter: drop-shadow(0 0 3px rgba(255, 255, 255, 0.8));
+  filter: none;
 }
 
 .star:hover svg {
-  filter: drop-shadow(0 0 6px rgba(255, 255, 255, 1));
+  filter: drop-shadow(0 0 2px rgba(255, 255, 255, 0.4));
 }
 
 .star:hover {
-  transform: scale(1.2);
+  transform: scale(1.05);
 }
 
 .star:active {
@@ -149,13 +149,13 @@ body {
 }
 
 #star-top-left {
-  top: 5px;
-  left: 5px;
+  top: 10px;
+  left: 10px;
 }
 
 #star-bottom-right {
-  bottom: 5px;
-  right: 5px;
+  bottom: 10px;
+  right: 10px;
 }
 
 /* Controls panel */

@@ -38,7 +38,7 @@ term.onData((data) => {
   clearTimeout(inputTimeout);
   inputTimeout = setTimeout(() => {
     userInteracting = false;
-  }, 500); // Allow output cycling 500ms after last keystroke
+  }, 100); // Allow output cycling 100ms after last keystroke
 
   ipcRenderer.send('terminal-input', data);
 });
@@ -170,11 +170,11 @@ function stopDrag() {
   isDragging = false;
   currentStar = null;
 
-  // Keep stars static for a moment after drag ends
+  // Brief cooldown after drag
   userInteracting = true;
   setTimeout(() => {
     userInteracting = false;
-  }, 1000);
+  }, 500);
 }
 
 // Star drag event listeners
