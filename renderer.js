@@ -178,8 +178,14 @@ function stopDrag() {
 }
 
 // Star drag event listeners
-starTopLeft.addEventListener('mousedown', (e) => startDrag(e, starTopLeft));
-starBottomRight.addEventListener('mousedown', (e) => startDrag(e, starBottomRight));
+starTopLeft.addEventListener('mousedown', (e) => {
+  startDrag(e, starTopLeft);
+  term.focus();
+});
+starBottomRight.addEventListener('mousedown', (e) => {
+  startDrag(e, starBottomRight);
+  term.focus();
+});
 
 document.addEventListener('mousemove', drag);
 document.addEventListener('mouseup', stopDrag);
