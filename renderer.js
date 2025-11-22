@@ -4,7 +4,8 @@ const { FitAddon } = require('xterm-addon-fit');
 
 // Initialize terminal
 const term = new Terminal({
-  cursorBlink: false,
+  cursorBlink: true,
+  cursorStyle: 'underline',
   fontSize: 14,
   fontFamily: 'Menlo, Monaco, "Courier New", monospace',
   theme: {
@@ -28,7 +29,17 @@ fitAddon.fit();
 
 // Handle terminal input
 let inputTimeout = null;
+let cursorShown = false; // Track if cursor has been shown
 term.onData((data) => {
+  // Show cursor on first keypress
+  if (!cursorShown) {
+    const cursor = document.querySelector('.xterm-cursor');
+    if (cursor) {
+      cursor.classList.add('active');
+      cursorShown = true;
+    }
+  }
+
   // Stop all cycling when user types - keep stars yellow and static
   starTopLeft.classList.remove('active', 'color-shift');
   starBottomRight.classList.remove('active', 'color-shift');
