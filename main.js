@@ -35,7 +35,7 @@ function createWindow() {
   ptyProcess = pty.spawn(shell, [], {
     name: 'xterm-color',
     cols: 80,
-    rows: 30,
+    rows: 64,
     cwd: process.env.HOME,
     env: process.env,
   });

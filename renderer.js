@@ -9,10 +9,10 @@ const term = new Terminal({
   fontFamily: 'Menlo, Monaco, "Courier New", monospace',
   theme: {
     background: 'transparent',
-    foreground: '#00ff00',
-    cursor: 'transparent',
-    cursorAccent: 'transparent',
-    selectionBackground: 'rgba(255, 255, 255, 0.3)',
+    foreground: '#ffdd15',
+    cursor: '#ffdd15',
+    cursorAccent: '#ffdd15',
+    selectionBackground: 'rgba(255, 221, 21, 0.3)',
   },
   allowTransparency: true,
   scrollback: 1000, // Limit scrollback to prevent memory issues

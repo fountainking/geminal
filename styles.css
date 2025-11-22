@@ -40,14 +40,9 @@ body {
   background: transparent !important;
 }
 
-/* Permanently hide cursor */
-.xterm .xterm-cursor-layer {
-  display: none !important;
-}
-
-.xterm-cursor {
-  display: none !important;
-}
+/* NOTE: Cannot hide cursor - breaks zsh autosuggestions
+   Tried: display:none, opacity:0, visibility:hidden
+   All break autosuggestion rendering */
 
 /* Draggable stars */
 .star {
