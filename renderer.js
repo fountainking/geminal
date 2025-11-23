@@ -1,4 +1,4 @@
-const { ipcRenderer } = require('electron');
+const { ipcRenderer, Menu, webFrame } = require('electron');
 const { Terminal } = require('xterm');
 const { FitAddon } = require('xterm-addon-fit');
 
@@ -25,7 +25,13 @@ term.loadAddon(fitAddon);
 // Mount terminal to DOM
 const terminalContainer = document.getElementById('terminal-container');
 term.open(terminalContainer);
-fitAddon.fit();
+
+// Function to fit terminal to container (adjusts cols/rows, not font size)
+function resizeTerminal() {
+  fitAddon.fit();
+}
+
+resizeTerminal();
 
 // Handle terminal input
 let inputTimeout = null;
@@ -60,6 +66,7 @@ let userInteracting = false; // Track if user is typing or dragging
 
 ipcRenderer.on('terminal-output', (event, data) => {
   term.write(data);
+  term.scrollToBottom(); // Keep terminal scrolled to bottom
 
   // Don't cycle if user is actively interacting
   if (userInteracting) return;
@@ -81,7 +88,7 @@ ipcRenderer.on('terminal-output', (event, data) => {
 
 // Fit terminal on window resize
 window.addEventListener('resize', () => {
-  fitAddon.fit();
+  resizeTerminal();
   ipcRenderer.send('terminal-resize', {
     cols: term.cols,
     rows: term.rows,
@@ -90,7 +97,7 @@ window.addEventListener('resize', () => {
 
 // Initial fit and resize notification
 setTimeout(() => {
-  fitAddon.fit();
+  resizeTerminal();
   ipcRenderer.send('terminal-resize', {
     cols: term.cols,
     rows: term.rows,
@@ -105,9 +112,18 @@ const starTopLeft = document.getElementById('star-top-left');
 const starBottomRight = document.getElementById('star-bottom-right');
 
 let isDragging = false;
+let dragPending = false;
 let currentStar = null;
 let startX, startY;
 let initialWindowBounds = null;
+
+// Double-click detection for left star (close window)
+let lastClickTime = 0;
+let lastClickX = 0;
+let lastClickY = 0;
+const DOUBLE_CLICK_THRESHOLD = 300; // ms
+const DOUBLE_CLICK_DISTANCE = 10; // pixels - max distance for double-click
+const DRAG_THRESHOLD = 5; // pixels - must move this far to start drag
 
 function startDrag(e, star) {
   isDragging = true;
@@ -138,6 +154,21 @@ function startDrag(e, star) {
 }
 
 function drag(e) {
+  // If drag is pending, check if we've moved enough to start dragging
+  if (dragPending && !isDragging) {
+    const deltaX = e.screenX - startX;
+    const deltaY = e.screenY - startY;
+    const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+
+    if (distance > DRAG_THRESHOLD) {
+      // Start actual drag
+      isDragging = true;
+      dragPending = false;
+    } else {
+      return; // Not enough movement yet
+    }
+  }
+
   if (!isDragging || !currentStar) return;
 
   const deltaX = e.screenX - startX;
@@ -168,7 +199,7 @@ function drag(e) {
 
     // Refit terminal after resize
     setTimeout(() => {
-      fitAddon.fit();
+      resizeTerminal();
       ipcRenderer.send('terminal-resize', {
         cols: term.cols,
         rows: term.rows,
@@ -190,12 +221,76 @@ function stopDrag() {
 
 // Star drag event listeners
 starTopLeft.addEventListener('mousedown', (e) => {
+  const currentTime = Date.now();
+  const currentX = e.clientX;
+  const currentY = e.clientY;
+  const timeSinceLastClick = currentTime - lastClickTime;
+  const distanceFromLastClick = Math.sqrt(
+    Math.pow(currentX - lastClickX, 2) + Math.pow(currentY - lastClickY, 2)
+  );
+
+  // Check if this is a double-click (quick succession, same location)
+  if (timeSinceLastClick < DOUBLE_CLICK_THRESHOLD &&
+      distanceFromLastClick < DOUBLE_CLICK_DISTANCE) {
+    // Double-click detected! Show close confirmation dialog
+    ipcRenderer.send('show-close-dialog');
+    lastClickTime = 0;
+    lastClickX = 0;
+    lastClickY = 0;
+    e.preventDefault();
+    return;
+  }
+
+  // Single click - start dragging
+  lastClickTime = currentTime;
+  lastClickX = currentX;
+  lastClickY = currentY;
   startDrag(e, starTopLeft);
   term.focus();
 });
 starBottomRight.addEventListener('mousedown', (e) => {
   startDrag(e, starBottomRight);
   term.focus();
+});
+
+// Right-click context menu for right star
+starBottomRight.addEventListener('contextmenu', (e) => {
+  e.preventDefault();
+
+  const menu = Menu.buildFromTemplate([
+    {
+      label: 'New Window',
+      click: () => ipcRenderer.send('create-new-window')
+    },
+    {
+      label: 'Close Window',
+      click: () => ipcRenderer.send('show-close-dialog')
+    },
+    { type: 'separator' },
+    {
+      label: 'Show All Windows',
+      click: () => ipcRenderer.send('show-all-windows')
+    },
+    {
+      label: 'Hide All Windows',
+      click: () => ipcRenderer.send('hide-all-windows')
+    },
+    { type: 'separator' },
+    {
+      label: 'Window Level: Desktop',
+      click: () => ipcRenderer.send('set-window-level', 'desktop')
+    },
+    {
+      label: 'Window Level: Normal',
+      click: () => ipcRenderer.send('set-window-level', 'normal')
+    },
+    {
+      label: 'Window Level: Top',
+      click: () => ipcRenderer.send('set-window-level', 'top')
+    }
+  ]);
+
+  menu.popup();
 });
 
 document.addEventListener('mousemove', drag);
@@ -312,3 +407,33 @@ function launchStars() {
 window.addEventListener('DOMContentLoaded', () => {
   launchStars();
 });
+
+// ===============================================
+// ZOOM COMPENSATION FOR STARS
+// ===============================================
+
+function updateStarScale() {
+  const zoomFactor = webFrame.getZoomFactor();
+  const inverseScale = 1 / zoomFactor;
+
+  // Apply inverse scale via CSS variable to keep stars at fixed size
+  starTopLeft.style.setProperty('--zoom-scale', inverseScale);
+  starBottomRight.style.setProperty('--zoom-scale', inverseScale);
+
+  // Adjust positions to compensate for scale transform origin
+  starTopLeft.style.transformOrigin = 'top left';
+  starBottomRight.style.transformOrigin = 'bottom right';
+}
+
+// Update star scale on initial load
+updateStarScale();
+
+// Listen for zoom changes
+let lastZoomFactor = webFrame.getZoomFactor();
+setInterval(() => {
+  const currentZoomFactor = webFrame.getZoomFactor();
+  if (currentZoomFactor !== lastZoomFactor) {
+    lastZoomFactor = currentZoomFactor;
+    updateStarScale();
+  }
+}, 100);

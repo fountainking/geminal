@@ -58,6 +58,49 @@ function getRandomColorPair() {
 let windows = [];
 let tray;
 let isFirstWindow = true;
+let dialogWindow = null;
+let pendingCloseWindow = null;
+
+function showDialog(parentWindow) {
+  // Don't show multiple dialogs
+  if (dialogWindow && !dialogWindow.isDestroyed()) {
+    dialogWindow.focus();
+    return;
+  }
+
+  pendingCloseWindow = parentWindow;
+
+  dialogWindow = new BrowserWindow({
+    width: 322,
+    height: 105,
+    frame: false,
+    transparent: true,
+    alwaysOnTop: true,
+    hasShadow: false,
+    resizable: false,
+    webPreferences: {
+      nodeIntegration: true,
+      contextIsolation: false,
+    },
+  });
+
+  dialogWindow.setBackgroundColor('#00000000');
+
+  // Center dialog on parent window
+  if (parentWindow && !parentWindow.isDestroyed()) {
+    const parentBounds = parentWindow.getBounds();
+    const x = Math.round(parentBounds.x + (parentBounds.width - 322) / 2);
+    const y = Math.round(parentBounds.y + (parentBounds.height - 105) / 2);
+    dialogWindow.setPosition(x, y);
+  }
+
+  dialogWindow.loadFile('dialog.html');
+
+  dialogWindow.on('closed', () => {
+    dialogWindow = null;
+    // Don't clear pendingCloseWindow here - it's needed in dialog-response handler
+  });
+}
 
 function createWindow(colors) {
   // Only use colors for non-first windows
@@ -164,6 +207,70 @@ ipcMain.on('terminal-resize', (event, { cols, rows }) => {
 // Handle new window creation
 ipcMain.on('create-new-window', () => {
   createWindow();
+});
+
+// Handle show close dialog request
+ipcMain.on('show-close-dialog', (event) => {
+  const windowData = findWindowData(event.sender);
+  if (windowData) {
+    showDialog(windowData.win);
+  }
+});
+
+// Handle dialog response
+ipcMain.on('dialog-response', (event, shouldClose) => {
+  // Close the dialog
+  if (dialogWindow && !dialogWindow.isDestroyed()) {
+    dialogWindow.destroy();
+  }
+
+  // If user clicked Yes, close the pending window
+  if (shouldClose && pendingCloseWindow && !pendingCloseWindow.isDestroyed()) {
+    // Remove the close listener to avoid showing dialog again
+    pendingCloseWindow.removeAllListeners('close');
+    pendingCloseWindow.close();
+  }
+
+  pendingCloseWindow = null;
+});
+
+// Handle show all windows
+ipcMain.on('show-all-windows', () => {
+  windows.forEach(w => {
+    if (w.win && !w.win.isDestroyed()) {
+      w.win.show();
+    }
+  });
+});
+
+// Handle hide all windows
+ipcMain.on('hide-all-windows', () => {
+  windows.forEach(w => {
+    if (w.win && !w.win.isDestroyed()) {
+      w.win.hide();
+    }
+  });
+});
+
+// Handle window level changes
+ipcMain.on('set-window-level', (event, level) => {
+  const windowData = findWindowData(event.sender);
+  if (windowData && windowData.win) {
+    switch(level) {
+      case 'desktop':
+        windowData.win.setAlwaysOnTop(true, 'floating');
+        windowData.win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+        break;
+      case 'normal':
+        windowData.win.setAlwaysOnTop(false);
+        windowData.win.setVisibleOnAllWorkspaces(false);
+        break;
+      case 'top':
+        windowData.win.setAlwaysOnTop(true, 'screen-saver');
+        windowData.win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+        break;
+    }
+  }
 });
 
 function createTray() {
