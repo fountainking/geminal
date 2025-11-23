@@ -151,32 +151,6 @@ function startDrag(e, star) {
     height: window.innerHeight,
   };
 
-  // If dragging bottom-right star and window is collapsed, auto-expand to default size
-  if (star === starBottomRight && initialWindowBounds.width <= 100 && initialWindowBounds.height <= 100) {
-    const defaultWidth = 600;
-    const defaultHeight = 400;
-
-    ipcRenderer.send('resize-window', {
-      x: initialWindowBounds.x,
-      y: initialWindowBounds.y,
-      width: defaultWidth,
-      height: defaultHeight,
-    });
-
-    // Update initialWindowBounds to the new expanded size for subsequent dragging
-    initialWindowBounds.width = defaultWidth;
-    initialWindowBounds.height = defaultHeight;
-
-    // Refit terminal after auto-expand
-    setTimeout(() => {
-      resizeTerminal();
-      ipcRenderer.send('terminal-resize', {
-        cols: term.cols,
-        rows: term.rows,
-      });
-    }, 10);
-  }
-
   e.preventDefault();
 }
 
