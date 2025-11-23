@@ -212,6 +212,12 @@ const btnNormal = document.getElementById('btn-normal');
 
 // Toggle controls with Cmd+Shift+L (or Ctrl+Shift+L on Windows/Linux)
 document.addEventListener('keydown', (e) => {
+  // Create new window with Cmd+N (or Ctrl+N on Windows/Linux)
+  if ((e.metaKey || e.ctrlKey) && e.key === 'n') {
+    ipcRenderer.send('create-new-window');
+    e.preventDefault();
+  }
+
   if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'L') {
     controls.classList.toggle('hidden');
     e.preventDefault();
@@ -250,6 +256,42 @@ setTimeout(() => {
 
 console.log('geminal terminal ready');
 console.log('Press Cmd+Shift+L (or Ctrl+Shift+L) to toggle window level controls');
+
+// ===============================================
+// COLOR MANAGEMENT
+// ===============================================
+
+// Listen for color data from main process
+ipcRenderer.on('set-colors', (event, colorPair) => {
+  const [baseColor, lightColor] = colorPair;
+
+  // Update star SVG colors
+  const starTopLeftPaths = starTopLeft.querySelectorAll('path[fill="#ffdd15"]');
+  const starBottomRightPaths = starBottomRight.querySelectorAll('path[fill="#ffdd15"]');
+
+  starTopLeftPaths.forEach(path => path.setAttribute('fill', baseColor));
+  starBottomRightPaths.forEach(path => path.setAttribute('fill', lightColor));
+
+  // Update terminal theme colors
+  term.options.theme.foreground = baseColor;
+  term.options.theme.cursor = baseColor;
+  term.options.theme.cursorAccent = baseColor;
+
+  // Convert hex to rgba for selection background
+  const hexToRgba = (hex, alpha) => {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  };
+
+  term.options.theme.selectionBackground = hexToRgba(baseColor, 0.3);
+
+  // Update cursor underline color via CSS
+  const style = document.createElement('style');
+  style.textContent = `.xterm-cursor-outline { border-bottom: 2px solid ${baseColor} !important; }`;
+  document.head.appendChild(style);
+});
 
 // ===============================================
 // LAUNCH ANIMATIONS

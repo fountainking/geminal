@@ -3,12 +3,67 @@ const path = require('path');
 const pty = require('node-pty');
 const os = require('os');
 
-let mainWindow;
-let ptyProcess;
-let tray;
+// Color pairs: [base color, lighter version]
+const COLOR_PAIRS = [
+  ['#3b82f6', '#93c5fd'], // blue, light blue
+  ['#ec4899', '#f9a8d4'], // pink, light pink
+  ['#8b5cf6', '#c4b5fd'], // purple, light purple
+  ['#f59e0b', '#fcd34d'], // amber, light amber
+  ['#10b981', '#6ee7b7'], // green, light green
+  ['#ef4444', '#fca5a5'], // red, light red
+  ['#06b6d4', '#67e8f9'], // cyan, light cyan
+  ['#f97316', '#fdba74'], // orange, light orange
+  ['#6366f1', '#a5b4fc'], // indigo, light indigo
+  ['#14b8a6', '#5eead4'], // teal, light teal
+  ['#84cc16', '#bef264'], // lime, light lime
+  ['#eab308', '#fde047'], // yellow, light yellow
+  ['#f43f5e', '#fda4af'], // rose, light rose
+  ['#a855f7', '#d8b4fe'], // violet, light violet
+  ['#0ea5e9', '#7dd3fc'], // sky, light sky
+  ['#22c55e', '#86efac'], // emerald, light emerald
+  ['#fb923c', '#fdba74'], // orange-alt, light orange-alt
+  ['#ec4899', '#fbcfe8'], // fuchsia, light fuchsia
+  ['#8b5cf6', '#e9d5ff'], // purple-alt, light purple-alt
+  ['#06b6d4', '#a5f3fc'], // cyan-alt, light cyan-alt
+];
 
-function createWindow() {
-  mainWindow = new BrowserWindow({
+// Track recently used colors to avoid immediate repeats
+let recentColors = [];
+const RECENT_COLORS_LIMIT = 5;
+
+function getRandomColorPair() {
+  // Get available colors (not in recent list)
+  let availableColors = COLOR_PAIRS.filter(
+    (pair) => !recentColors.some(recent => recent[0] === pair[0] && recent[1] === pair[1])
+  );
+
+  // If we've used too many colors, reset to full list
+  if (availableColors.length === 0) {
+    availableColors = COLOR_PAIRS;
+    recentColors = [];
+  }
+
+  // Pick a random color from available ones
+  const randomPair = availableColors[Math.floor(Math.random() * availableColors.length)];
+
+  // Add to recent colors
+  recentColors.push(randomPair);
+  if (recentColors.length > RECENT_COLORS_LIMIT) {
+    recentColors.shift();
+  }
+
+  return randomPair;
+}
+
+let windows = [];
+let tray;
+let isFirstWindow = true;
+
+function createWindow(colors) {
+  // Only use colors for non-first windows
+  const colorPair = isFirstWindow ? null : (colors || getRandomColorPair());
+
+  const win = new BrowserWindow({
     width: 80,
     height: 64,
     frame: false,
@@ -21,18 +76,16 @@ function createWindow() {
     },
   });
 
-  mainWindow.setBackgroundColor('#00000000');
-
-  mainWindow.loadFile('index.html');
+  win.setBackgroundColor('#00000000');
 
   // Open DevTools in development
   if (process.argv.includes('--dev')) {
-    mainWindow.webContents.openDevTools({ mode: 'detach' });
+    win.webContents.openDevTools({ mode: 'detach' });
   }
 
-  // Spawn terminal process
+  // Spawn terminal process for this window
   const shell = process.env.SHELL || (os.platform() === 'win32' ? 'powershell.exe' : 'bash');
-  ptyProcess = pty.spawn(shell, [], {
+  const ptyProcess = pty.spawn(shell, [], {
     name: 'xterm-color',
     cols: 80,
     rows: 64,
@@ -40,45 +93,77 @@ function createWindow() {
     env: process.env,
   });
 
+  // Store window and pty reference
+  windows.push({ win, ptyProcess, colors: colorPair });
+
+  // Send color data to renderer after content loads (only for non-first windows)
+  if (colorPair) {
+    win.webContents.on('did-finish-load', () => {
+      win.webContents.send('set-colors', colorPair);
+    });
+  }
+
+  win.loadFile('index.html');
+
+  // Mark that first window has been created
+  if (isFirstWindow) {
+    isFirstWindow = false;
+  }
+
   // Send terminal output to renderer
   ptyProcess.onData((data) => {
-    if (mainWindow && !mainWindow.isDestroyed()) {
+    if (win && !win.isDestroyed()) {
       try {
-        mainWindow.webContents.send('terminal-output', data);
+        win.webContents.send('terminal-output', data);
       } catch (err) {
         // Window might be closing, ignore
       }
     }
   });
 
-  mainWindow.on('closed', () => {
-    mainWindow = null;
+  win.on('closed', () => {
     if (ptyProcess) {
       ptyProcess.kill();
     }
+    // Remove from windows array
+    windows = windows.filter(w => w.win !== win);
   });
+
+  return win;
+}
+
+// Helper function to find window data by webContents
+function findWindowData(webContents) {
+  return windows.find(w => w.win.webContents === webContents);
 }
 
 // Handle terminal input from renderer
 ipcMain.on('terminal-input', (event, data) => {
-  if (ptyProcess) {
-    ptyProcess.write(data);
+  const windowData = findWindowData(event.sender);
+  if (windowData && windowData.ptyProcess) {
+    windowData.ptyProcess.write(data);
   }
 });
 
 // Handle window resize from draggable stars
 ipcMain.on('resize-window', (event, { x, y, width, height }) => {
-  if (mainWindow) {
-    mainWindow.setBounds({ x, y, width, height });
+  const windowData = findWindowData(event.sender);
+  if (windowData) {
+    windowData.win.setBounds({ x, y, width, height });
   }
 });
 
-
 // Handle terminal resize (cols/rows)
 ipcMain.on('terminal-resize', (event, { cols, rows }) => {
-  if (ptyProcess) {
-    ptyProcess.resize(cols, rows);
+  const windowData = findWindowData(event.sender);
+  if (windowData && windowData.ptyProcess) {
+    windowData.ptyProcess.resize(cols, rows);
   }
+});
+
+// Handle new window creation
+ipcMain.on('create-new-window', () => {
+  createWindow();
 });
 
 function createTray() {
@@ -91,19 +176,21 @@ function createTray() {
 
   const contextMenu = Menu.buildFromTemplate([
     {
-      label: 'Show Window',
+      label: 'New Window',
       click: () => {
-        if (mainWindow) {
-          mainWindow.show();
-        }
+        createWindow();
       }
     },
     {
-      label: 'Hide Window',
+      label: 'Show All Windows',
       click: () => {
-        if (mainWindow) {
-          mainWindow.hide();
-        }
+        windows.forEach(w => w.win.show());
+      }
+    },
+    {
+      label: 'Hide All Windows',
+      click: () => {
+        windows.forEach(w => w.win.hide());
       }
     },
     { type: 'separator' },
