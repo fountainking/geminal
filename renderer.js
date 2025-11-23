@@ -187,9 +187,9 @@ function drag(e) {
       height: initialWindowBounds.height,
     });
   } else if (currentStar === starBottomRight) {
-    // Resize window
-    const newWidth = Math.max(600, initialWindowBounds.width + deltaX);
-    const newHeight = Math.max(400, initialWindowBounds.height + deltaY);
+    // Resize window - allow shrinking to collapsed star size
+    const newWidth = Math.max(80, initialWindowBounds.width + deltaX);
+    const newHeight = Math.max(64, initialWindowBounds.height + deltaY);
 
     ipcRenderer.send('resize-window', {
       x: initialWindowBounds.x,
