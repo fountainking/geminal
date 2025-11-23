@@ -1,8 +1,9 @@
-const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, screen } = require('electron');
+const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, screen, desktopCapturer } = require('electron');
 const remoteMain = require('@electron/remote/main');
 const path = require('path');
 const pty = require('node-pty');
 const os = require('os');
+const sharp = require('sharp');
 
 // Initialize remote module
 remoteMain.initialize();
@@ -57,6 +58,83 @@ function getRandomColorPair() {
   }
 
   return randomPair;
+}
+
+// Detect if background behind window is light or dark
+async function detectBackgroundBrightness(windowBounds) {
+  try {
+    const sources = await desktopCapturer.getSources({
+      types: ['screen'],
+      thumbnailSize: {
+        width: Math.round(windowBounds.width * 2), // Capture at 2x for better sampling
+        height: Math.round(windowBounds.height * 2)
+      }
+    });
+
+    if (sources.length === 0) return null;
+
+    // Get the primary screen source
+    const primarySource = sources[0];
+    const thumbnail = primarySource.thumbnail;
+
+    // Get the display to calculate the crop area
+    const display = screen.getDisplayNearestPoint({ x: windowBounds.x, y: windowBounds.y });
+    const scaleFactor = display.scaleFactor || 2;
+
+    // Calculate crop coordinates relative to the screen
+    const cropX = Math.round((windowBounds.x - display.bounds.x) * scaleFactor);
+    const cropY = Math.round((windowBounds.y - display.bounds.y) * scaleFactor);
+    const cropWidth = Math.round(windowBounds.width * scaleFactor);
+    const cropHeight = Math.round(windowBounds.height * scaleFactor);
+
+    // Convert nativeImage to PNG buffer
+    const pngBuffer = thumbnail.toPNG();
+
+    // Use sharp to crop and analyze the specific window area
+    const image = sharp(pngBuffer);
+    const metadata = await image.metadata();
+
+    // Ensure crop is within bounds
+    const safeX = Math.max(0, Math.min(cropX, metadata.width - 1));
+    const safeY = Math.max(0, Math.min(cropY, metadata.height - 1));
+    const safeWidth = Math.min(cropWidth, metadata.width - safeX);
+    const safeHeight = Math.min(cropHeight, metadata.height - safeY);
+
+    if (safeWidth <= 0 || safeHeight <= 0) return null;
+
+    // Sample a grid of points instead of every pixel for performance
+    const sampleSize = 32; // 32x32 grid sample
+    const croppedImage = await image
+      .extract({ left: safeX, top: safeY, width: safeWidth, height: safeHeight })
+      .resize(sampleSize, sampleSize, { fit: 'fill' })
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+
+    const { data, info } = croppedImage;
+    const pixelCount = sampleSize * sampleSize;
+
+    // Calculate average brightness using perceived luminance formula
+    let totalBrightness = 0;
+    for (let i = 0; i < data.length; i += info.channels) {
+      const r = data[i];
+      const g = data[i + 1];
+      const b = data[i + 2];
+      // Perceived luminance: https://en.wikipedia.org/wiki/Relative_luminance
+      const brightness = (0.299 * r + 0.587 * g + 0.114 * b);
+      totalBrightness += brightness;
+    }
+
+    const avgBrightness = totalBrightness / pixelCount;
+
+    // Return brightness value (0-255) and whether it's light (>128 is light)
+    return {
+      brightness: avgBrightness,
+      isLight: avgBrightness > 128
+    };
+  } catch (error) {
+    console.error('Error detecting background brightness:', error);
+    return null;
+  }
 }
 
 let windows = [];
@@ -288,6 +366,18 @@ ipcMain.on('hide-all-windows', () => {
       w.win.hide();
     }
   });
+});
+
+// Handle background brightness detection request
+ipcMain.handle('detect-background-brightness', async (event) => {
+  const windowData = findWindowData(event.sender);
+  if (!windowData || !windowData.win || windowData.win.isDestroyed()) {
+    return null;
+  }
+
+  const bounds = windowData.win.getBounds();
+  const result = await detectBackgroundBrightness(bounds);
+  return result;
 });
 
 function createTray() {

@@ -52,6 +52,12 @@ body {
   height: 2px !important;
   bottom: 0 !important;
   top: auto !important;
+  opacity: 0 !important; /* Hide until user interacts */
+}
+
+/* Show cursor when active */
+.xterm-cursor-outline.active {
+  opacity: 1 !important;
 }
 
 /* Draggable stars */

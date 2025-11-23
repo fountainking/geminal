@@ -41,10 +41,14 @@ term.onData((data) => {
   // Show cursor on first keypress
   if (!cursorShown) {
     const cursor = document.querySelector('.xterm-cursor');
+    const cursorOutline = document.querySelector('.xterm-cursor-outline');
     if (cursor) {
       cursor.classList.add('active');
-      cursorShown = true;
     }
+    if (cursorOutline) {
+      cursorOutline.classList.add('active');
+    }
+    cursorShown = true;
   }
 
   // Stop all cycling when user types - keep stars yellow and static
@@ -124,10 +128,10 @@ const starTopLeft = document.getElementById('star-top-left');
 const starBottomRight = document.getElementById('star-bottom-right');
 
 let isDragging = false;
-let dragPending = false;
 let currentStar = null;
 let startX, startY;
 let initialWindowBounds = null;
+const DRAG_THRESHOLD = 5; // pixels - minimum movement to start drag
 
 // Double-click detection for left star (close window)
 let lastClickTimeLeft = 0;
@@ -138,7 +142,7 @@ const DOUBLE_CLICK_THRESHOLD = 300; // ms
 const DOUBLE_CLICK_DISTANCE = 10; // pixels - max distance for double-click
 
 function startDrag(e, star) {
-  isDragging = true;
+  // Don't set isDragging yet - wait for movement threshold
   currentStar = star;
   startX = e.screenX;
   startY = e.screenY;
@@ -166,10 +170,21 @@ function startDrag(e, star) {
 }
 
 function drag(e) {
-  if (!isDragging || !currentStar) return;
+  if (!currentStar) return;
 
   const deltaX = e.screenX - startX;
   const deltaY = e.screenY - startY;
+  const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+
+  // Only start dragging if we've moved beyond threshold
+  if (!isDragging && distance < DRAG_THRESHOLD) {
+    return;
+  }
+
+  // Mark as dragging once threshold is crossed
+  if (!isDragging) {
+    isDragging = true;
+  }
 
   if (currentStar === starTopLeft) {
     // Move window
@@ -182,6 +197,9 @@ function drag(e) {
       width: initialWindowBounds.width,
       height: initialWindowBounds.height,
     });
+
+    // Update text color if auto mode is enabled
+    updateTextColorBasedOnBackground();
   } else if (currentStar === starBottomRight) {
     // Resize window - allow shrinking to collapsed star size
     const newWidth = Math.max(80, initialWindowBounds.width + deltaX);
@@ -201,19 +219,22 @@ function drag(e) {
         cols: term.cols,
         rows: term.rows,
       });
+      // Update text color after resize settles
+      updateTextColorBasedOnBackground();
     }, 10);
   }
 }
 
 function stopDrag() {
   isDragging = false;
-  dragPending = false;
   currentStar = null;
 
   // Brief cooldown to settle resize operations
   userInteracting = true;
   setTimeout(() => {
     userInteracting = false;
+    // Check background brightness after drag ends
+    updateTextColorBasedOnBackground();
   }, 200);
   // manuallyStoppedCycling stays true until user types
 }
@@ -243,6 +264,44 @@ function setTerminalColor(color) {
   term.refresh(0, term.rows - 1);
 }
 
+// Auto-detect background brightness and adjust text color
+let autoColorEnabled = false;
+let lastBrightnessCheck = 0;
+const BRIGHTNESS_CHECK_THROTTLE = 200; // ms
+
+async function updateTextColorBasedOnBackground() {
+  if (!autoColorEnabled) return;
+
+  // Throttle brightness checks
+  const now = Date.now();
+  if (now - lastBrightnessCheck < BRIGHTNESS_CHECK_THROTTLE) {
+    return;
+  }
+  lastBrightnessCheck = now;
+
+  try {
+    const result = await ipcRenderer.invoke('detect-background-brightness');
+    if (result) {
+      // If background is light, use dark text; if dark, use light text
+      const textColor = result.isLight ? '#1a1a1a' : '#ffed4e';
+      setTerminalColor(textColor);
+    }
+  } catch (error) {
+    console.error('Error detecting background:', error);
+  }
+}
+
+// Enable/disable auto color detection
+function setAutoColor(enabled) {
+  autoColorEnabled = enabled;
+  if (enabled) {
+    updateTextColorBasedOnBackground();
+  } else {
+    // Reset to default yellow
+    setTerminalColor('#ffed4e');
+  }
+}
+
 // Function to show the window menu
 function showWindowMenu() {
   const menu = Menu.buildFromTemplate([
@@ -259,32 +318,60 @@ function showWindowMenu() {
       label: 'Text Color',
       submenu: [
         {
+          label: 'Auto (Adapt to Background)',
+          type: 'checkbox',
+          checked: autoColorEnabled,
+          click: () => setAutoColor(!autoColorEnabled)
+        },
+        { type: 'separator' },
+        {
           label: 'Yellow (Default)',
-          click: () => setTerminalColor('#ffed4e')
+          click: () => {
+            setAutoColor(false);
+            setTerminalColor('#ffed4e');
+          }
         },
         {
           label: 'Green',
-          click: () => setTerminalColor('#00ff00')
+          click: () => {
+            setAutoColor(false);
+            setTerminalColor('#00ff00');
+          }
         },
         {
           label: 'Cyan',
-          click: () => setTerminalColor('#00ffff')
+          click: () => {
+            setAutoColor(false);
+            setTerminalColor('#00ffff');
+          }
         },
         {
           label: 'White',
-          click: () => setTerminalColor('#ffffff')
+          click: () => {
+            setAutoColor(false);
+            setTerminalColor('#ffffff');
+          }
         },
         {
           label: 'Orange',
-          click: () => setTerminalColor('#ff8800')
+          click: () => {
+            setAutoColor(false);
+            setTerminalColor('#ff8800');
+          }
         },
         {
           label: 'Pink',
-          click: () => setTerminalColor('#ff69b4')
+          click: () => {
+            setAutoColor(false);
+            setTerminalColor('#ff69b4');
+          }
         },
         {
           label: 'Purple',
-          click: () => setTerminalColor('#bb88ff')
+          click: () => {
+            setAutoColor(false);
+            setTerminalColor('#bb88ff');
+          }
         }
       ]
     },
@@ -316,7 +403,6 @@ starTopLeft.addEventListener('mousedown', (e) => {
   if (timeSinceLastClick < DOUBLE_CLICK_THRESHOLD &&
       distanceFromLastClick < DOUBLE_CLICK_DISTANCE) {
     // Double-click detected! Show close confirmation dialog
-    dragPending = false; // Cancel any pending drag
     ipcRenderer.send('show-close-dialog');
     lastClickTimeLeft = 0;
     lastClickXLeft = 0;
@@ -325,18 +411,13 @@ starTopLeft.addEventListener('mousedown', (e) => {
     return;
   }
 
-  // Single click - track for double-click detection and start drag
+  // Single click - track for double-click detection and prepare for potential drag
   lastClickTimeLeft = currentTime;
   lastClickXLeft = currentX;
   lastClickYLeft = currentY;
 
-  // Start drag after a brief delay to allow double-click detection
-  dragPending = true;
-  setTimeout(() => {
-    if (dragPending) {
-      startDrag(e, starTopLeft);
-    }
-  }, 50);
+  // Start drag immediately - threshold will prevent accidental drags
+  startDrag(e, starTopLeft);
 
   term.focus();
 });
@@ -483,4 +564,15 @@ setInterval(() => {
     updateStarScale();
   }
 }, 100);
+
+// ===============================================
+// AUTO BACKGROUND BRIGHTNESS DETECTION
+// ===============================================
+
+// Periodically check background brightness when auto mode is enabled
+setInterval(() => {
+  if (autoColorEnabled) {
+    updateTextColorBasedOnBackground();
+  }
+}, 1000); // Check every second when auto mode is on
 
