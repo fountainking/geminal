@@ -188,8 +188,8 @@ function drag(e) {
     });
   } else if (currentStar === starBottomRight) {
     // Resize window
-    const newWidth = Math.max(300, initialWindowBounds.width + deltaX);
-    const newHeight = Math.max(200, initialWindowBounds.height + deltaY);
+    const newWidth = Math.max(600, initialWindowBounds.width + deltaX);
+    const newHeight = Math.max(400, initialWindowBounds.height + deltaY);
 
     ipcRenderer.send('resize-window', {
       x: initialWindowBounds.x,
