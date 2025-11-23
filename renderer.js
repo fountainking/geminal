@@ -222,7 +222,6 @@ function stopDrag() {
 
 // Function to show the window menu
 function showWindowMenu() {
-  console.log('showWindowMenu called');
   const menu = Menu.buildFromTemplate([
     {
       label: 'New Window',
@@ -256,9 +255,7 @@ function showWindowMenu() {
     }
   ]);
 
-  console.log('Menu created, calling popup');
   menu.popup();
-  console.log('popup() called');
 }
 
 // Star drag event listeners
@@ -302,7 +299,6 @@ document.addEventListener('mouseup', stopDrag);
 // Global right-click context menu
 document.addEventListener('contextmenu', (e) => {
   e.preventDefault();
-  console.log('Right-click detected, showing menu');
   showWindowMenu();
 });
 
@@ -447,6 +443,3 @@ setInterval(() => {
     updateStarScale();
   }
 }, 100);
-
-console.log('=== RENDERER.JS LOADED ===');
-console.log('Context menu listener added:', document.hasOwnProperty('contextmenu'));
