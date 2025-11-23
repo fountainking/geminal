@@ -289,6 +289,31 @@ starTopLeft.addEventListener('mousedown', (e) => {
 });
 
 starBottomRight.addEventListener('mousedown', (e) => {
+  // If window is collapsed, auto-expand to default size instead of dragging
+  if (window.innerWidth <= 100 && window.innerHeight <= 100) {
+    const defaultWidth = 600;
+    const defaultHeight = 400;
+
+    ipcRenderer.send('resize-window', {
+      x: window.screenX,
+      y: window.screenY,
+      width: defaultWidth,
+      height: defaultHeight,
+    });
+
+    // Refit terminal after auto-expand
+    setTimeout(() => {
+      resizeTerminal();
+      ipcRenderer.send('terminal-resize', {
+        cols: term.cols,
+        rows: term.rows,
+      });
+    }, 10);
+
+    e.preventDefault();
+    return; // Don't start drag on expansion click
+  }
+
   startDrag(e, starBottomRight);
   term.focus();
 });
