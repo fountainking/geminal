@@ -1,4 +1,5 @@
-const { ipcRenderer, Menu, webFrame } = require('electron');
+const { ipcRenderer, webFrame } = require('electron');
+const { Menu } = require('@electron/remote');
 const { Terminal } = require('xterm');
 const { FitAddon } = require('xterm-addon-fit');
 
@@ -118,12 +119,12 @@ let startX, startY;
 let initialWindowBounds = null;
 
 // Double-click detection for left star (close window)
-let lastClickTime = 0;
-let lastClickX = 0;
-let lastClickY = 0;
+let lastClickTimeLeft = 0;
+let lastClickXLeft = 0;
+let lastClickYLeft = 0;
+
 const DOUBLE_CLICK_THRESHOLD = 300; // ms
 const DOUBLE_CLICK_DISTANCE = 10; // pixels - max distance for double-click
-const DRAG_THRESHOLD = 5; // pixels - must move this far to start drag
 
 function startDrag(e, star) {
   isDragging = true;
@@ -219,44 +220,9 @@ function stopDrag() {
   }, 500);
 }
 
-// Star drag event listeners
-starTopLeft.addEventListener('mousedown', (e) => {
-  const currentTime = Date.now();
-  const currentX = e.clientX;
-  const currentY = e.clientY;
-  const timeSinceLastClick = currentTime - lastClickTime;
-  const distanceFromLastClick = Math.sqrt(
-    Math.pow(currentX - lastClickX, 2) + Math.pow(currentY - lastClickY, 2)
-  );
-
-  // Check if this is a double-click (quick succession, same location)
-  if (timeSinceLastClick < DOUBLE_CLICK_THRESHOLD &&
-      distanceFromLastClick < DOUBLE_CLICK_DISTANCE) {
-    // Double-click detected! Show close confirmation dialog
-    ipcRenderer.send('show-close-dialog');
-    lastClickTime = 0;
-    lastClickX = 0;
-    lastClickY = 0;
-    e.preventDefault();
-    return;
-  }
-
-  // Single click - start dragging
-  lastClickTime = currentTime;
-  lastClickX = currentX;
-  lastClickY = currentY;
-  startDrag(e, starTopLeft);
-  term.focus();
-});
-starBottomRight.addEventListener('mousedown', (e) => {
-  startDrag(e, starBottomRight);
-  term.focus();
-});
-
-// Right-click context menu for right star
-starBottomRight.addEventListener('contextmenu', (e) => {
-  e.preventDefault();
-
+// Function to show the window menu
+function showWindowMenu() {
+  console.log('showWindowMenu called');
   const menu = Menu.buildFromTemplate([
     {
       label: 'New Window',
@@ -290,11 +256,55 @@ starBottomRight.addEventListener('contextmenu', (e) => {
     }
   ]);
 
+  console.log('Menu created, calling popup');
   menu.popup();
+  console.log('popup() called');
+}
+
+// Star drag event listeners
+starTopLeft.addEventListener('mousedown', (e) => {
+  const currentTime = Date.now();
+  const currentX = e.clientX;
+  const currentY = e.clientY;
+  const timeSinceLastClick = currentTime - lastClickTimeLeft;
+  const distanceFromLastClick = Math.sqrt(
+    Math.pow(currentX - lastClickXLeft, 2) + Math.pow(currentY - lastClickYLeft, 2)
+  );
+
+  // Check if this is a double-click (quick succession, same location)
+  if (timeSinceLastClick < DOUBLE_CLICK_THRESHOLD &&
+      distanceFromLastClick < DOUBLE_CLICK_DISTANCE) {
+    // Double-click detected! Show close confirmation dialog
+    ipcRenderer.send('show-close-dialog');
+    lastClickTimeLeft = 0;
+    lastClickXLeft = 0;
+    lastClickYLeft = 0;
+    e.preventDefault();
+    return;
+  }
+
+  // Single click - start dragging
+  lastClickTimeLeft = currentTime;
+  lastClickXLeft = currentX;
+  lastClickYLeft = currentY;
+  startDrag(e, starTopLeft);
+  term.focus();
+});
+
+starBottomRight.addEventListener('mousedown', (e) => {
+  startDrag(e, starBottomRight);
+  term.focus();
 });
 
 document.addEventListener('mousemove', drag);
 document.addEventListener('mouseup', stopDrag);
+
+// Global right-click context menu
+document.addEventListener('contextmenu', (e) => {
+  e.preventDefault();
+  console.log('Right-click detected, showing menu');
+  showWindowMenu();
+});
 
 // ===============================================
 // WINDOW LEVEL CONTROLS
@@ -437,3 +447,6 @@ setInterval(() => {
     updateStarScale();
   }
 }, 100);
+
+console.log('=== RENDERER.JS LOADED ===');
+console.log('Context menu listener added:', document.hasOwnProperty('contextmenu'));

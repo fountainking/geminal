@@ -1,7 +1,11 @@
 const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage } = require('electron');
+const remoteMain = require('@electron/remote/main');
 const path = require('path');
 const pty = require('node-pty');
 const os = require('os');
+
+// Initialize remote module
+remoteMain.initialize();
 
 // Color pairs: [base color, lighter version]
 const COLOR_PAIRS = [
@@ -86,6 +90,9 @@ function showDialog(parentWindow) {
 
   dialogWindow.setBackgroundColor('#00000000');
 
+  // Enable remote module for dialog
+  remoteMain.enable(dialogWindow.webContents);
+
   // Center dialog on parent window
   if (parentWindow && !parentWindow.isDestroyed()) {
     const parentBounds = parentWindow.getBounds();
@@ -120,6 +127,9 @@ function createWindow(colors) {
   });
 
   win.setBackgroundColor('#00000000');
+
+  // Enable remote module for this window
+  remoteMain.enable(win.webContents);
 
   // Open DevTools in development
   if (process.argv.includes('--dev')) {
