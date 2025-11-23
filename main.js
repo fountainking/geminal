@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage } = require('electron');
+const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, screen } = require('electron');
 const remoteMain = require('@electron/remote/main');
 const path = require('path');
 const pty = require('node-pty');
@@ -146,8 +146,11 @@ function createWindow(colors) {
     env: process.env,
   });
 
+  // Store window ID early before window can be destroyed
+  const windowId = win.webContents.id;
+
   // Store window and pty reference
-  windows.push({ win, ptyProcess, colors: colorPair });
+  windows.push({ win, ptyProcess, colors: colorPair, windowId });
 
   // Send color data to renderer after content loads (only for non-first windows)
   if (colorPair) {
@@ -178,6 +181,7 @@ function createWindow(colors) {
     if (ptyProcess) {
       ptyProcess.kill();
     }
+
     // Remove from windows array
     windows = windows.filter(w => w.win !== win);
   });
@@ -202,7 +206,31 @@ ipcMain.on('terminal-input', (event, data) => {
 ipcMain.on('resize-window', (event, { x, y, width, height }) => {
   const windowData = findWindowData(event.sender);
   if (windowData) {
-    windowData.win.setBounds({ x, y, width, height });
+    // Get the display where the window is (or will be)
+    const display = screen.getDisplayNearestPoint({ x: Math.round(x), y: Math.round(y) });
+    const screenBounds = display.workArea;
+
+    // Constrain window position to screen bounds
+    // Don't let the window go completely off-screen, keep at least 80px visible
+    const minVisibleWidth = 80;
+    const minVisibleHeight = 64;
+
+    const constrainedX = Math.max(
+      screenBounds.x - (width - minVisibleWidth),
+      Math.min(x, screenBounds.x + screenBounds.width - minVisibleWidth)
+    );
+
+    const constrainedY = Math.max(
+      screenBounds.y,
+      Math.min(y, screenBounds.y + screenBounds.height - minVisibleHeight)
+    );
+
+    windowData.win.setBounds({
+      x: Math.round(constrainedX),
+      y: Math.round(constrainedY),
+      width: Math.round(width),
+      height: Math.round(height)
+    });
   }
 });
 
@@ -260,27 +288,6 @@ ipcMain.on('hide-all-windows', () => {
       w.win.hide();
     }
   });
-});
-
-// Handle window level changes
-ipcMain.on('set-window-level', (event, level) => {
-  const windowData = findWindowData(event.sender);
-  if (windowData && windowData.win) {
-    switch(level) {
-      case 'desktop':
-        windowData.win.setAlwaysOnTop(true, 'floating');
-        windowData.win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
-        break;
-      case 'normal':
-        windowData.win.setAlwaysOnTop(false);
-        windowData.win.setVisibleOnAllWorkspaces(false);
-        break;
-      case 'top':
-        windowData.win.setAlwaysOnTop(true, 'screen-saver');
-        windowData.win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
-        break;
-    }
-  }
 });
 
 function createTray() {

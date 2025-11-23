@@ -11,10 +11,10 @@ const term = new Terminal({
   fontFamily: 'Menlo, Monaco, "Courier New", monospace',
   theme: {
     background: 'transparent',
-    foreground: '#ffdd15',
-    cursor: '#ffdd15',
-    cursorAccent: '#ffdd15',
-    selectionBackground: 'rgba(255, 221, 21, 0.3)',
+    foreground: '#ffed4e',
+    cursor: '#ffed4e',
+    cursorAccent: '#ffed4e',
+    selectionBackground: 'rgba(255, 237, 78, 0.3)',
   },
   allowTransparency: true,
   scrollback: 1000, // Limit scrollback to prevent memory issues
@@ -51,6 +51,9 @@ term.onData((data) => {
   starTopLeft.classList.remove('active', 'color-shift');
   starBottomRight.classList.remove('active', 'color-shift');
 
+  // Reset manual stop flag - allow cycling to resume after typing
+  manuallyStoppedCycling = false;
+
   // Block output-triggered cycling briefly while user is typing
   userInteracting = true;
   clearTimeout(inputTimeout);
@@ -64,13 +67,21 @@ term.onData((data) => {
 // Handle terminal output from main process
 let activityTimeout = null;
 let userInteracting = false; // Track if user is typing or dragging
+let manuallyStoppedCycling = false; // Track if user clicked to stop cycling
 
 ipcRenderer.on('terminal-output', (event, data) => {
-  term.write(data);
-  term.scrollToBottom(); // Keep terminal scrolled to bottom
+  // Check if user is scrolled to bottom before writing
+  const wasAtBottom = term.buffer.active.viewportY === term.buffer.active.baseY;
 
-  // Don't cycle if user is actively interacting
-  if (userInteracting) return;
+  term.write(data);
+
+  // Only auto-scroll if user was already at the bottom
+  if (wasAtBottom) {
+    term.scrollToBottom();
+  }
+
+  // Don't cycle if user is actively interacting or manually stopped cycling
+  if (userInteracting || manuallyStoppedCycling) return;
 
   // Start cycling only on substantial output (avoid single char/line echoes)
   // This catches command output like cmatrix but not typing echoes
@@ -78,12 +89,12 @@ ipcRenderer.on('terminal-output', (event, data) => {
     starTopLeft.classList.add('active');
     starBottomRight.classList.add('active');
 
-    // Reset the inactivity timer - keep cycling until silence
+    // Reset the star cycling timer - keep cycling until silence
     clearTimeout(activityTimeout);
     activityTimeout = setTimeout(() => {
       starTopLeft.classList.remove('active');
       starBottomRight.classList.remove('active');
-    }, 5000); // Stop after 5s of silence
+    }, 5000); // Stop star cycling after 5s of silence
   }
 });
 
@@ -136,14 +147,14 @@ function startDrag(e, star) {
   starTopLeft.classList.remove('color-shift', 'active');
   starBottomRight.classList.remove('color-shift', 'active');
 
-  // Block output-triggered cycling while dragging
+  // Block output-triggered cycling while dragging and after
   userInteracting = true;
+  manuallyStoppedCycling = true; // Prevent restart until user types
 
   // Clear any pending timeout
   clearTimeout(activityTimeout);
 
-  // Get current window bounds
-  const bounds = window.electron?.screen?.getCursorScreenPoint() || { x: 0, y: 0 };
+  // Get current window bounds at drag start
   initialWindowBounds = {
     x: window.screenX,
     y: window.screenY,
@@ -155,28 +166,13 @@ function startDrag(e, star) {
 }
 
 function drag(e) {
-  // If drag is pending, check if we've moved enough to start dragging
-  if (dragPending && !isDragging) {
-    const deltaX = e.screenX - startX;
-    const deltaY = e.screenY - startY;
-    const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-
-    if (distance > DRAG_THRESHOLD) {
-      // Start actual drag
-      isDragging = true;
-      dragPending = false;
-    } else {
-      return; // Not enough movement yet
-    }
-  }
-
   if (!isDragging || !currentStar) return;
 
   const deltaX = e.screenX - startX;
   const deltaY = e.screenY - startY;
 
   if (currentStar === starTopLeft) {
-    // Move entire window
+    // Move window
     const newX = initialWindowBounds.x + deltaX;
     const newY = initialWindowBounds.y + deltaY;
 
@@ -211,13 +207,40 @@ function drag(e) {
 
 function stopDrag() {
   isDragging = false;
+  dragPending = false;
   currentStar = null;
 
-  // CRITICAL: 500ms cooldown blocks resize output cycling. DO NOT INCREASE or cmatrix breaks.
+  // Brief cooldown to settle resize operations
   userInteracting = true;
   setTimeout(() => {
     userInteracting = false;
-  }, 500);
+  }, 200);
+  // manuallyStoppedCycling stays true until user types
+}
+
+// Function to change terminal text color
+function setTerminalColor(color) {
+  term.options.theme.foreground = color;
+  term.options.theme.cursor = color;
+  term.options.theme.cursorAccent = color;
+
+  // Convert hex to rgba for selection background
+  const r = parseInt(color.slice(1, 3), 16);
+  const g = parseInt(color.slice(3, 5), 16);
+  const b = parseInt(color.slice(5, 7), 16);
+  term.options.theme.selectionBackground = `rgba(${r}, ${g}, ${b}, 0.3)`;
+
+  // Update cursor underline color via CSS
+  const existingStyle = document.getElementById('cursor-color-style');
+  if (existingStyle) {
+    existingStyle.remove();
+  }
+  const style = document.createElement('style');
+  style.id = 'cursor-color-style';
+  style.textContent = `.xterm-cursor-outline { border-bottom: 2px solid ${color} !important; }`;
+  document.head.appendChild(style);
+
+  term.refresh(0, term.rows - 1);
 }
 
 // Function to show the window menu
@@ -233,25 +256,46 @@ function showWindowMenu() {
     },
     { type: 'separator' },
     {
+      label: 'Text Color',
+      submenu: [
+        {
+          label: 'Yellow (Default)',
+          click: () => setTerminalColor('#ffed4e')
+        },
+        {
+          label: 'Green',
+          click: () => setTerminalColor('#00ff00')
+        },
+        {
+          label: 'Cyan',
+          click: () => setTerminalColor('#00ffff')
+        },
+        {
+          label: 'White',
+          click: () => setTerminalColor('#ffffff')
+        },
+        {
+          label: 'Orange',
+          click: () => setTerminalColor('#ff8800')
+        },
+        {
+          label: 'Pink',
+          click: () => setTerminalColor('#ff69b4')
+        },
+        {
+          label: 'Purple',
+          click: () => setTerminalColor('#bb88ff')
+        }
+      ]
+    },
+    { type: 'separator' },
+    {
       label: 'Show All Windows',
       click: () => ipcRenderer.send('show-all-windows')
     },
     {
       label: 'Hide All Windows',
       click: () => ipcRenderer.send('hide-all-windows')
-    },
-    { type: 'separator' },
-    {
-      label: 'Window Level: Desktop',
-      click: () => ipcRenderer.send('set-window-level', 'desktop')
-    },
-    {
-      label: 'Window Level: Normal',
-      click: () => ipcRenderer.send('set-window-level', 'normal')
-    },
-    {
-      label: 'Window Level: Top',
-      click: () => ipcRenderer.send('set-window-level', 'top')
     }
   ]);
 
@@ -272,6 +316,7 @@ starTopLeft.addEventListener('mousedown', (e) => {
   if (timeSinceLastClick < DOUBLE_CLICK_THRESHOLD &&
       distanceFromLastClick < DOUBLE_CLICK_DISTANCE) {
     // Double-click detected! Show close confirmation dialog
+    dragPending = false; // Cancel any pending drag
     ipcRenderer.send('show-close-dialog');
     lastClickTimeLeft = 0;
     lastClickXLeft = 0;
@@ -280,11 +325,19 @@ starTopLeft.addEventListener('mousedown', (e) => {
     return;
   }
 
-  // Single click - start dragging
+  // Single click - track for double-click detection and start drag
   lastClickTimeLeft = currentTime;
   lastClickXLeft = currentX;
   lastClickYLeft = currentY;
-  startDrag(e, starTopLeft);
+
+  // Start drag after a brief delay to allow double-click detection
+  dragPending = true;
+  setTimeout(() => {
+    if (dragPending) {
+      startDrag(e, starTopLeft);
+    }
+  }, 50);
+
   term.focus();
 });
 
@@ -328,60 +381,22 @@ document.addEventListener('contextmenu', (e) => {
 });
 
 // ===============================================
-// WINDOW LEVEL CONTROLS
+// KEYBOARD SHORTCUTS
 // ===============================================
 
-const controls = document.getElementById('controls');
-const btnDesktop = document.getElementById('btn-desktop');
-const btnTop = document.getElementById('btn-top');
-const btnNormal = document.getElementById('btn-normal');
-
-// Toggle controls with Cmd+Shift+L (or Ctrl+Shift+L on Windows/Linux)
 document.addEventListener('keydown', (e) => {
   // Create new window with Cmd+N (or Ctrl+N on Windows/Linux)
   if ((e.metaKey || e.ctrlKey) && e.key === 'n') {
     ipcRenderer.send('create-new-window');
     e.preventDefault();
   }
-
-  if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'L') {
-    controls.classList.toggle('hidden');
-    e.preventDefault();
-  }
-
-  // Close controls with Escape
-  if (e.key === 'Escape' && !controls.classList.contains('hidden')) {
-    controls.classList.add('hidden');
-    e.preventDefault();
-  }
-});
-
-btnDesktop.addEventListener('click', () => {
-  ipcRenderer.send('set-window-level', 'desktop');
-  controls.classList.add('hidden');
-});
-
-btnTop.addEventListener('click', () => {
-  ipcRenderer.send('set-window-level', 'top');
-  controls.classList.add('hidden');
-});
-
-btnNormal.addEventListener('click', () => {
-  ipcRenderer.send('set-window-level', 'normal');
-  controls.classList.add('hidden');
 });
 
 // ===============================================
 // INITIAL SETUP
 // ===============================================
 
-// Set initial window level to desktop (behind everything)
-setTimeout(() => {
-  ipcRenderer.send('set-window-level', 'desktop');
-}, 500);
-
 console.log('geminal terminal ready');
-console.log('Press Cmd+Shift+L (or Ctrl+Shift+L) to toggle window level controls');
 
 // ===============================================
 // COLOR MANAGEMENT
@@ -468,3 +483,4 @@ setInterval(() => {
     updateStarScale();
   }
 }, 100);
+
