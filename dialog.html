@@ -44,6 +44,17 @@
 
     .button-yes, .button-no {
       cursor: pointer;
+      transition: transform 0.3s ease;
+      transform-origin: center;
+    }
+
+    .button-yes:hover, .button-no:hover {
+      transform: scale(1.05);
+    }
+
+    .button-yes:active, .button-no:active {
+      transform: scale(0.9);
+      cursor: grabbing;
     }
 
     .hit-area {
