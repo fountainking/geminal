@@ -21,7 +21,7 @@ const COLOR_PAIRS = [
   ['#6366f1', '#a5b4fc'], // indigo, light indigo
   ['#14b8a6', '#5eead4'], // teal, light teal
   ['#84cc16', '#bef264'], // lime, light lime
-  ['#eab308', '#fde047'], // yellow, light yellow
+  ['#FFBF00', '#FFE680'], // yellow, light yellow
   ['#f43f5e', '#fda4af'], // rose, light rose
   ['#a855f7', '#d8b4fe'], // violet, light violet
   ['#0ea5e9', '#7dd3fc'], // sky, light sky

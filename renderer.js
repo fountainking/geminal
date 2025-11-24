@@ -11,10 +11,10 @@ const term = new Terminal({
   fontFamily: 'Menlo, Monaco, "Courier New", monospace',
   theme: {
     background: 'transparent',
-    foreground: '#ffed4e',
-    cursor: '#ffed4e',
-    cursorAccent: '#ffed4e',
-    selectionBackground: 'rgba(255, 237, 78, 0.3)',
+    foreground: '#FFBF00',
+    cursor: '#FFBF00',
+    cursorAccent: '#FFBF00',
+    selectionBackground: 'rgba(255, 191, 0, 0.3)',
   },
   allowTransparency: true,
   scrollback: 1000, // Limit scrollback to prevent memory issues
@@ -261,7 +261,25 @@ function setTerminalColor(color) {
   style.textContent = `.xterm-cursor-outline { border-bottom: 2px solid ${color} !important; }`;
   document.head.appendChild(style);
 
+  // Update bloom overlay color to match terminal text
+  updateBloomOverlayColor(r, g, b);
+
   term.refresh(0, term.rows - 1);
+}
+
+// Function to update bloom overlay gradient color
+function updateBloomOverlayColor(r, g, b) {
+  const bloomOverlay = document.getElementById('bloom-overlay');
+  if (bloomOverlay) {
+    bloomOverlay.style.background = `radial-gradient(
+      ellipse at center,
+      rgba(${r}, ${g}, ${b}, 0.18) 0%,
+      rgba(${r}, ${g}, ${b}, 0.12) 30%,
+      rgba(${r}, ${g}, ${b}, 0.06) 50%,
+      rgba(${r}, ${g}, ${b}, 0.02) 70%,
+      transparent 85%
+    )`;
+  }
 }
 
 // Auto-detect background brightness and adjust text color
@@ -283,7 +301,7 @@ async function updateTextColorBasedOnBackground() {
     const result = await ipcRenderer.invoke('detect-background-brightness');
     if (result) {
       // If background is light, use dark text; if dark, use light text
-      const textColor = result.isLight ? '#1a1a1a' : '#ffed4e';
+      const textColor = result.isLight ? '#1a1a1a' : '#FFBF00';
       setTerminalColor(textColor);
     }
   } catch (error) {
@@ -298,7 +316,7 @@ function setAutoColor(enabled) {
     updateTextColorBasedOnBackground();
   } else {
     // Reset to default yellow
-    setTerminalColor('#ffed4e');
+    setTerminalColor('#FFBF00');
   }
 }
 
@@ -328,7 +346,7 @@ function showWindowMenu() {
           label: 'Yellow (Default)',
           click: () => {
             setAutoColor(false);
-            setTerminalColor('#ffed4e');
+            setTerminalColor('#FFBF00');
           }
         },
         {
@@ -391,6 +409,9 @@ function showWindowMenu() {
 
 // Star drag event listeners
 starTopLeft.addEventListener('mousedown', (e) => {
+  // Ignore right-clicks (context menu)
+  if (e.button !== 0) return;
+
   const currentTime = Date.now();
   const currentX = e.clientX;
   const currentY = e.clientY;
@@ -423,6 +444,9 @@ starTopLeft.addEventListener('mousedown', (e) => {
 });
 
 starBottomRight.addEventListener('mousedown', (e) => {
+  // Ignore right-clicks (context menu)
+  if (e.button !== 0) return;
+
   // If window is collapsed, auto-expand to default size instead of dragging
   if (window.innerWidth <= 100 && window.innerHeight <= 100) {
     const defaultWidth = 600;
@@ -458,6 +482,8 @@ document.addEventListener('mouseup', stopDrag);
 // Global right-click context menu
 document.addEventListener('contextmenu', (e) => {
   e.preventDefault();
+  // Reset drag state in case it was set
+  stopDrag();
   showWindowMenu();
 });
 
@@ -513,6 +539,12 @@ ipcRenderer.on('set-colors', (event, colorPair) => {
   const style = document.createElement('style');
   style.textContent = `.xterm-cursor-outline { border-bottom: 2px solid ${baseColor} !important; }`;
   document.head.appendChild(style);
+
+  // Update bloom overlay color to match
+  const r = parseInt(baseColor.slice(1, 3), 16);
+  const g = parseInt(baseColor.slice(3, 5), 16);
+  const b = parseInt(baseColor.slice(5, 7), 16);
+  updateBloomOverlayColor(r, g, b);
 });
 
 // ===============================================
