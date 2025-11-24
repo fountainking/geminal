@@ -26,12 +26,13 @@ body {
   background: transparent !important;
   z-index: 10;
   cursor: text;
+  overflow: visible;
 }
 
 /* Xterm.js overrides for transparency */
 .xterm {
   background: transparent !important;
-  padding: 40px; /* Increased to prevent bloom clipping */
+  padding: 20px;
   overflow: visible;
 }
 
@@ -49,11 +50,11 @@ body {
    Tried: display:none, opacity:0, visibility:hidden
    All break autosuggestion rendering */
 
-/* Hide the default block cursor to prevent it from covering text */
+/* Keep cursor as underline in both focused and unfocused states */
 .xterm-cursor {
   background: transparent !important;
   border: none !important;
-  opacity: 0 !important;
+  border-bottom: 2px solid #FFBF00 !important;
 }
 
 /* Force unfocused cursor to be underline style instead of block outline */
@@ -191,17 +192,16 @@ body {
   -webkit-app-region: no-drag; /* Keep custom resize behavior */
 }
 
-/* Enhanced bloom effect on terminal text */
+/* Text bloom effect */
 .xterm-rows {
   text-shadow:
-    0 0 40px currentColor,
-    0 0 20px currentColor,
     0 0 10px currentColor,
-    0 0 5px currentColor;
+    0 0 5px currentColor,
+    0 0 2px currentColor;
   overflow: visible;
 }
 
-/* Bloom overlay with falloff to prevent hard window edges */
+/* Bloom overlay - disabled */
 #bloom-overlay {
   position: fixed;
   top: 0;
@@ -210,14 +210,6 @@ body {
   bottom: 0;
   pointer-events: none;
   z-index: 1;
-  background: radial-gradient(
-    ellipse at center,
-    rgba(255, 191, 0, 0.18) 0%,
-    rgba(255, 191, 0, 0.12) 30%,
-    rgba(255, 191, 0, 0.06) 50%,
-    rgba(255, 191, 0, 0.02) 70%,
-    transparent 85%
-  );
-  mix-blend-mode: screen;
+  display: none;
 }
 

@@ -333,6 +333,28 @@ function showWindowMenu() {
     },
     { type: 'separator' },
     {
+      label: 'Screen Saver',
+      submenu: [
+        {
+          label: 'Falling Stars (Rain)',
+          click: () => screenSaver.start('rain')
+        },
+        {
+          label: 'Cherry Blossoms',
+          click: () => screenSaver.start('cherry')
+        },
+        {
+          label: 'Starfield',
+          click: () => screenSaver.start('starfield')
+        },
+        { type: 'separator' },
+        {
+          label: 'Stop Screen Saver',
+          click: () => screenSaver.stop()
+        }
+      ]
+    },
+    {
       label: 'Text Color',
       submenu: [
         {
@@ -607,4 +629,11 @@ setInterval(() => {
     updateTextColorBasedOnBackground();
   }
 }, 1000); // Check every second when auto mode is on
+
+// ===============================================
+// SCREEN SAVER INITIALIZATION
+// ===============================================
+
+// Initialize screen saver system
+screenSaver.init();
 
