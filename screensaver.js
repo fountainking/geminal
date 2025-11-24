@@ -47,6 +47,14 @@ class ScreenSaver {
     this.lastWarpTime = 0;
     this.startTime = null; // Track when screensaver started
     this.timeScale = 1.0;   // Animation speed multiplier
+
+    // Idle detection properties
+    this.idleEnabled = true;
+    this.idleTimeout = 60000; // Default 60 seconds
+    this.idleTimer = null;
+    this.lastActivityTime = Date.now();
+    this.idleMode = 'random'; // Default mode for idle activation
+    this.availableModes = ['rain', 'cherry', 'starfield'];
   }
 
   init() {
@@ -70,6 +78,61 @@ class ScreenSaver {
     this.stopHandler = () => this.stop();
     document.addEventListener('keydown', this.stopHandler);
     document.addEventListener('mousedown', this.stopHandler);
+
+    // Add idle detection listeners
+    this.activityHandler = () => this.resetIdleTimer();
+    document.addEventListener('keydown', this.activityHandler);
+    document.addEventListener('mousedown', this.activityHandler);
+    document.addEventListener('mousemove', this.activityHandler);
+
+    // Start idle monitoring
+    this.startIdleMonitoring();
+  }
+
+  startIdleMonitoring() {
+    this.resetIdleTimer();
+  }
+
+  resetIdleTimer() {
+    this.lastActivityTime = Date.now();
+
+    // Clear existing timer
+    if (this.idleTimer) {
+      clearTimeout(this.idleTimer);
+      this.idleTimer = null;
+    }
+
+    // Set new timer if idle detection is enabled and screensaver not already active
+    if (this.idleEnabled && !this.active) {
+      this.idleTimer = setTimeout(() => {
+        // Choose random mode if set to random, otherwise use selected mode
+        const mode = this.idleMode === 'random'
+          ? this.availableModes[Math.floor(Math.random() * this.availableModes.length)]
+          : this.idleMode;
+        this.start(mode);
+      }, this.idleTimeout);
+    }
+  }
+
+  setIdleTimeout(milliseconds) {
+    this.idleTimeout = milliseconds;
+    this.resetIdleTimer();
+  }
+
+  setIdleMode(mode) {
+    this.idleMode = mode;
+  }
+
+  enableIdle(enabled) {
+    this.idleEnabled = enabled;
+    if (enabled) {
+      this.resetIdleTimer();
+    } else {
+      if (this.idleTimer) {
+        clearTimeout(this.idleTimer);
+        this.idleTimer = null;
+      }
+    }
   }
 
   start(mode) {
@@ -131,6 +194,9 @@ class ScreenSaver {
     if (this.starfieldSpawn) {
       this.starfieldSpawn = null;
     }
+
+    // Reset idle timer when screensaver stops
+    this.resetIdleTimer();
   }
 
   createStar(x, y, color, size = 32) {

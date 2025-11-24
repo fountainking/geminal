@@ -351,6 +351,72 @@ function showWindowMenu() {
         {
           label: 'Stop Screen Saver',
           click: () => screenSaver.stop()
+        },
+        { type: 'separator' },
+        {
+          label: 'Idle Activation',
+          type: 'checkbox',
+          checked: screenSaver.idleEnabled,
+          click: () => screenSaver.enableIdle(!screenSaver.idleEnabled)
+        },
+        {
+          label: 'Idle Timeout',
+          submenu: [
+            {
+              label: '30 seconds',
+              type: 'radio',
+              checked: screenSaver.idleTimeout === 30000,
+              click: () => screenSaver.setIdleTimeout(30000)
+            },
+            {
+              label: '60 seconds',
+              type: 'radio',
+              checked: screenSaver.idleTimeout === 60000,
+              click: () => screenSaver.setIdleTimeout(60000)
+            },
+            {
+              label: '2 minutes',
+              type: 'radio',
+              checked: screenSaver.idleTimeout === 120000,
+              click: () => screenSaver.setIdleTimeout(120000)
+            },
+            {
+              label: '5 minutes',
+              type: 'radio',
+              checked: screenSaver.idleTimeout === 300000,
+              click: () => screenSaver.setIdleTimeout(300000)
+            }
+          ]
+        },
+        {
+          label: 'Idle Mode',
+          submenu: [
+            {
+              label: 'Random',
+              type: 'radio',
+              checked: screenSaver.idleMode === 'random',
+              click: () => screenSaver.setIdleMode('random')
+            },
+            { type: 'separator' },
+            {
+              label: 'Falling Stars (Rain)',
+              type: 'radio',
+              checked: screenSaver.idleMode === 'rain',
+              click: () => screenSaver.setIdleMode('rain')
+            },
+            {
+              label: 'Cherry Blossoms',
+              type: 'radio',
+              checked: screenSaver.idleMode === 'cherry',
+              click: () => screenSaver.setIdleMode('cherry')
+            },
+            {
+              label: 'Starfield',
+              type: 'radio',
+              checked: screenSaver.idleMode === 'starfield',
+              click: () => screenSaver.setIdleMode('starfield')
+            }
+          ]
         }
       ]
     },
