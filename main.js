@@ -216,8 +216,8 @@ function createWindow(colors) {
 
   // Spawn terminal process for this window
   const shell = process.env.SHELL || (os.platform() === 'win32' ? 'powershell.exe' : 'bash');
-  const ptyProcess = pty.spawn(shell, [], {
-    name: 'xterm-color',
+  const ptyProcess = pty.spawn(shell, ['-l'], {
+    name: 'xterm-256color',
     cols: 80,
     rows: 64,
     cwd: process.env.HOME,
